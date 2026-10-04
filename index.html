@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奇遇卡牌 · 每天抽一个神奇网站</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171334'/%3E%3Cpath d='M16 5l2.4 7.2L26 14l-7.6 1.8L16 23l-2.4-7.2L6 14l7.6-1.8z' fill='%23EBC57F'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
+<style>
+/* ============ 基础与变量 ============ */
+:root{
+  --bg:#0E0B22; --bg2:#171334; --panel:#1E1940; --panel2:#251E4D;
+  --ink:#F3EEE3; --ink2:#B7AFCF; --ink3:#847CA3;
+  --gold:#EBC57F; --gold2:#D9A95E; --line:rgba(235,197,127,.28);
+  --card-w:290px; --card-h:412px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Noto Sans SC',system-ui,sans-serif;
+  color:var(--ink); background:var(--bg);
+  overflow-x:hidden; min-height:100vh;
+}
+#starfield{position:fixed;inset:0;z-index:0;pointer-events:none}
+/* 背景光晕 */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(620px 420px at 50% -8%, rgba(124,108,214,.28), transparent 70%),
+    radial-gradient(500px 400px at 88% 108%, rgba(217,169,94,.12), transparent 70%),
+    radial-gradient(500px 400px at 8% 100%, rgba(88,120,190,.14), transparent 70%);
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+a{text-decoration:none;color:inherit}
+.serif{font-family:'Noto Serif SC',serif}
+
+/* ============ 顶部导航 ============ */
+header{
+  position:relative;z-index:5;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 26px; max-width:1180px;margin:0 auto;
+}
+.brand{display:flex;align-items:center;gap:11px}
+.brand svg{width:34px;height:34px}
+.brand h1{font-family:'Noto Serif SC',serif;font-weight:900;font-size:21px;letter-spacing:2px}
+.brand small{display:block;font-size:10px;color:var(--ink3);letter-spacing:3px;font-weight:400;margin-top:1px}
+nav{display:flex;gap:8px;background:rgba(30,25,64,.7);border:1px solid rgba(255,255,255,.07);
+  padding:5px;border-radius:999px;backdrop-filter:blur(8px)}
+nav button{
+  padding:8px 17px;border-radius:999px;font-size:13.5px;color:var(--ink2);
+  display:flex;align-items:center;gap:7px;transition:.25s;
+}
+nav button.active{background:var(--gold);color:#2A2008;font-weight:700}
+nav button:not(.active):hover{color:var(--ink)}
+.nav-count{font-size:11px;background:rgba(255,255,255,.12);padding:1px 7px;border-radius:99px;min-width:20px;text-align:center}
+nav button.active .nav-count{background:rgba(42,32,8,.25);color:#2A2008}
+
+/* ============ 主区域 ============ */
+main{position:relative;z-index:3;max-width:1180px;margin:0 auto;padding:10px 26px 60px}
+.view{display:none}
+.view.show{display:block;animation:viewIn .5s ease}
+@keyframes viewIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* 抽卡视图 */
+.draw-hero{text-align:center;margin:18px 0 6px}
+.draw-hero h2{font-family:'Noto Serif SC',serif;font-size:30px;font-weight:900;letter-spacing:3px}
+.draw-hero p{color:var(--ink2);font-size:14px;margin-top:9px;letter-spacing:1px}
+.draw-hero .daily-hint{
+  display:inline-flex;align-items:center;gap:7px;margin-top:14px;font-size:12.5px;color:var(--gold);
+  border:1px solid var(--line);padding:5px 14px;border-radius:99px;background:rgba(235,197,127,.07);
+}
+
+/* 牌桌 */
+.table-wrap{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:34px}
+.deck-stage{position:relative;width:var(--card-w);height:var(--card-h);perspective:1400px}
+.stack{position:absolute;inset:0}
+.stack .card-back{position:absolute;inset:0;transition:transform .5s ease,opacity .4s}
+.stack .card-back:nth-child(1){transform:translate(-14px,10px) rotate(-7deg)}
+.stack .card-back:nth-child(2){transform:translate(-7px,5px) rotate(-3deg)}
+.stack .card-back:nth-child(3){transform:translate(0,0) rotate(0deg)}
+.deck-stage.shuffling .stack .card-back:nth-child(1){animation:sh1 .35s ease}
+.deck-stage.shuffling .stack .card-back:nth-child(2){animation:sh2 .35s ease}
+.deck-stage.shuffling .stack .card-back:nth-child(3){animation:sh3 .35s ease}
+@keyframes sh1{0%,100%{transform:translate(-14px,10px) rotate(-7deg)}50%{transform:translate(-30px,-6px) rotate(-14deg)}}
+@keyframes sh2{0%,100%{transform:translate(-7px,5px) rotate(-3deg)}50%{transform:translate(10px,-12px) rotate(6deg)}}
+@keyframes sh3{0%,100%{transform:none}50%{transform:translate(-4px,-16px) rotate(-5deg)}}
+
+/* 牌背 */
+.card-back{
+  border-radius:16px;
+  background:linear-gradient(160deg,#2B2360,#191438 70%);
+  border:1px solid var(--line);
+  box-shadow:0 18px 40px rgba(0,0,0,.5), inset 0 0 0 3px rgba(235,197,127,.08);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.card-back .seal{width:62%;height:62%;opacity:.85}
+.card-back .frame{position:absolute;inset:9px;border:1px solid rgba(235,197,127,.25);border-radius:11px}
+
+/* 抽出的牌（翻转） */
+.drawn-card{
+  position:absolute;inset:0;
+  transform-style:preserve-3d;
+  opacity:0;pointer-events:none;
+}
+.drawn-card.rising{
+  opacity:1;pointer-events:auto;
+  animation:rise .4s cubic-bezier(.2,.9,.3,1.2) forwards;
+}
+@keyframes rise{from{transform:translateY(70px) scale(.8)}to{transform:translateY(0) scale(1)}}
+.drawn-card.flipping{animation:flipUp .65s cubic-bezier(.4,.1,.2,1) forwards}
+@keyframes flipUp{
+  0%{transform:translateY(0) rotateY(0)}
+  55%{transform:translateY(-26px) rotateY(90deg)}
+  100%{transform:translateY(0) rotateY(180deg)}
+}
+.face{
+  position:absolute;inset:0;backface-visibility:hidden;border-radius:16px;overflow:hidden;
+}
+.face.back{transform:rotateY(180deg)}
+.face.front{
+  transform:rotateY(180deg);
+  background:linear-gradient(170deg,#241E50,#161232 72%);
+  border:1px solid var(--line);
+  box-shadow:0 22px 50px rgba(0,0,0,.55);
+  display:flex;flex-direction:column;
+}
+.face.front .inner-frame{position:absolute;inset:8px;border:1px solid rgba(235,197,127,.22);border-radius:11px;pointer-events:none;z-index:4}
+
+/* 牌正面内容 */
+.card-art{height:158px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.card-art svg{width:104px;height:104px;position:relative;z-index:2;filter:drop-shadow(0 6px 14px rgba(0,0,0,.4))}
+.card-art .art-bg{position:absolute;inset:0}
+.card-body{padding:14px 18px 12px;display:flex;flex-direction:column;flex:1}
+.card-cat{font-size:11px;letter-spacing:2px;display:inline-flex;align-items:center;gap:6px;align-self:flex-start;
+  padding:3px 10px;border-radius:99px;border:1px solid currentColor}
+.card-name{font-family:'Noto Serif SC',serif;font-weight:900;font-size:24px;margin-top:9px;line-height:1.25;letter-spacing:.5px}
+.card-domain{font-size:11px;color:var(--ink3);margin-top:4px}
+.card-desc{font-size:13px;color:var(--ink2);line-height:1.65;margin-top:9px}
+.card-tip{font-size:11.5px;color:var(--gold);margin-top:8px;line-height:1.5;display:flex;gap:6px}
+.card-tip b{font-weight:500}
+.card-actions{display:flex;gap:8px;margin-top:auto;padding-top:12px}
+.btn{
+  flex:1;padding:10px 6px;border-radius:10px;font-size:13px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:6px;transition:.2s;
+}
+.btn-go{background:var(--gold);color:#2A2008}
+.btn-go:hover{background:#f2d293}
+.btn-fav{flex:0 0 44px;border:1px solid var(--line);color:var(--gold)}
+.btn-fav:hover{background:rgba(235,197,127,.12)}
+.btn-fav.saved{background:rgba(235,197,127,.16)}
+.btn-fav svg{width:18px;height:18px}
+
+/* 大抽卡按钮 */
+.draw-btn{
+  margin-top:40px;
+  font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;letter-spacing:4px;
+  color:#2A2008;background:linear-gradient(180deg,#F2D293,#D9A95E);
+  padding:16px 52px;border-radius:99px;
+  box-shadow:0 12px 30px rgba(217,169,94,.35), inset 0 1px 0 rgba(255,255,255,.5);
+  transition:.2s;position:relative;
+}
+.draw-btn:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(217,169,94,.45)}
+.draw-btn:active{transform:translateY(0)}
+.draw-btn.secondary{font-size:14px;padding:12px 34px;letter-spacing:2px}
+.draw-stats{margin-top:22px;font-size:12.5px;color:var(--ink3);letter-spacing:1px}
+.draw-stats b{color:var(--gold);font-weight:500}
+
+/* 粒子 */
+#particles{position:fixed;inset:0;z-index:40;pointer-events:none}
+
+/* ============ 收藏视图 ============ */
+.fav-head{text-align:center;margin:14px 0 26px}
+.fav-head h2{font-family:'Noto Serif SC',serif;font-size:27px;font-weight:900;letter-spacing:3px}
+.fav-head p{color:var(--ink3);font-size:13px;margin-top:8px}
+.fav-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:22px;
+}
+.fav-card{
+  border-radius:14px;overflow:hidden;position:relative;
+  background:linear-gradient(170deg,#241E50,#161232);
+  border:1px solid rgba(255,255,255,.09);
+  transition:.25s;display:flex;flex-direction:column;
+}
+.fav-card:hover{transform:translateY(-4px);border-color:var(--line)}
+.fav-card .card-art{height:118px}
+.fav-card .card-art svg{width:68px;height:68px}
+.fav-card .card-body{padding:12px 15px 14px}
+.fav-card .card-name{font-size:18px;margin-top:7px}
+.fav-card .card-desc{font-size:12px;margin-top:6px;line-height:1.55}
+.fav-card .fcard-actions{display:flex;gap:8px;margin-top:11px}
+.fav-card .btn{padding:8px 4px;font-size:12px}
+.fav-card .btn-fav{flex:0 0 38px}
+.empty{
+  grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--ink3);
+}
+.empty svg{width:64px;height:64px;opacity:.4;margin-bottom:18px}
+.empty p{font-size:14px;line-height:1.9}
+.empty .go-draw{margin-top:22px;display:inline-block;padding:11px 30px;border-radius:99px;
+  background:var(--gold);color:#2A2008;font-weight:700;font-size:13.5px}
+
+/* toast */
+#toast{
+  position:fixed;left:50%;bottom:42px;transform:translateX(-50%) translateY(20px);
+  background:rgba(30,25,64,.95);border:1px solid var(--line);color:var(--ink);
+  padding:11px 22px;border-radius:99px;font-size:13px;z-index:60;
+  opacity:0;transition:.3s;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ============ 响应式 ============ */
+@media (max-width:600px){
+  :root{--card-w:78vw;--card-h:calc(78vw * 1.42)}
+  header{padding:14px 16px}
+  .brand h1{font-size:18px}
+  nav button{padding:7px 12px;font-size:12.5px}
+  main{padding:6px 14px 50px}
+  .draw-hero h2{font-size:23px}
+  .draw-hero p{font-size:12.5px}
+  .draw-btn{padding:14px 40px;font-size:16px}
+  .card-name{font-size:21px}
+  .fav-grid{grid-template-columns:1fr 1fr;gap:13px}
+  .fav-card .card-art{height:86px}
+  .fav-card .card-art svg{width:50px;height:50px}
+  .fav-card .card-desc{display:none}
+  .fav-card .card-name{font-size:15px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+<canvas id="particles"></canvas>
+
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 32 32"><path d="M16 4l2.5 7.5L26 14l-7.5 2.5L16 24l-2.5-7.5L6 14l7.5-2.5z" fill="#EBC57F"/><circle cx="16" cy="16" r="2.2" fill="#0E0B22"/></svg>
+    <div><h1>奇遇卡牌</h1><small>WONDER CARDS</small></div>
+  </div>
+  <nav>
+    <button id="navDraw" class="active">抽卡</button>
+    <button id="navFav">收藏夹<span class="nav-count" id="favCount">0</span></button>
+  </nav>
+</header>
+
+<main>
+  <!-- ===== 视图：抽卡 ===== -->
+  <section class="view show" id="viewDraw">
+    <div class="draw-hero">
+      <h2>每天抽一张，遇见一个神奇网站</h2>
+      <p>世界上有无数有趣、好玩、脑洞大开的角落，抽一张，让命运替你挑一个</p>
+      <div class="daily-hint" id="dailyHint">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span id="dailyHintText">今天的命运之牌还没抽</span>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="deck-stage" id="deckStage">
+        <div class="stack" id="stack">
+          <div class="card-back"><div class="frame"></div>CARD_BACK_SEAL</div>
+          <div class="card-back"><div class="frame"></div>CARD_BACK_SEAL</div>
+          <div class="card-back"><div class="frame"></div>CARD_BACK_SEAL</div>
+        </div>
+        <div class="drawn-card" id="drawnCard">
+          <div class="face back">CARD_BACK_SEAL</div>
+          <div class="face front" id="cardFront"></div>
+        </div>
+      </div>
+      <button class="draw-btn" id="drawBtn">抽 取 卡 牌</button>
+      <div class="draw-stats">牌库共 <b id="totalCount">0</b> 张 · 你已抽过 <b id="drawnCount">0</b> 张 · 收藏 <b id="favCount2">0</b> 张</div>
+    </div>
+  </section>
+
+  <!-- ===== 视图：收藏夹 ===== -->
+  <section class="view" id="viewFav">
+    <div class="fav-head">
+      <h2>我的收藏</h2>
+      <p>抽到时心动的网站，都安放在这里</p>
+    </div>
+    <div class="fav-grid" id="favGrid"></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* ============ 牌库数据 ============ */
+const CATS = [
+  {key:'sound', name:'世界之声', color:'#6FC6D9'},
+  {key:'art',   name:'视觉玩具', color:'#D076BC'},
+  {key:'fun',   name:'奇趣实验', color:'#E0A24F'},
+  {key:'game',  name:'沉浸游戏', color:'#7BC48F'},
+  {key:'space', name:'宇宙地球', color:'#8B96E8'},
+  {key:'know',  name:'知识可视', color:'#E3C46B'},
+  {key:'heal',  name:'治愈氛围', color:'#E39FB0'},
+  {key:'make',  name:'创造工具', color:'#65C3B0'},
+];
+const SITES = [
+  // [名称, 网址, 类别索引, 描述, 玩法提示]
+  // 世界之声
+  ['Radio Garden','https://radio.garden/',0,'转动一只悬浮的地球，把小绿点落到任何城市，立刻听到当地正在直播的电台。','深夜把地球转到冰岛或印度，听一听地球另一端此刻的声音。'],
+  ['Radiooooo','https://radiooooo.com/',0,'在世界地图上选一个国家、一个年代，就能听到那个年代那个地方的人在听什么。','选 1960 年代的巴西，像翻开一张声音老照片。'],
+  ['Radio Aporee','https://aporee.org/radiomap/',0,'全球田野录音地图：街头、集市、雨林、港口，有人把那里的声音录下来钉在地图上。','点开南美洲的雨林，闭眼就像站在那里。'],
+  ['Nature Sound Map','https://naturesoundmap.com/',0,'自然声音地图，从北极冰川到澳洲丛林，标满了动物、风和流水的真实录音。','想静一静的时候，随便点开海里的一个点。'],
+  ['Earth.fm','https://earth.fm/',0,'纯粹的自然声景播放器，每个录音都来自地球上真实的生态角落。','戴上耳机，五分钟像去野外走了一趟。'],
+  ['Xeno-canto','https://xeno-canto.org/',0,'全球鸟鸣数据库，在地图上点开任何区域，就能听到当地野鸟的叫声。','想知道某种鸟怎么叫，来这里查。'],
+  ['Every Noise at Once','https://everynoise.com/',0,'一张由上千个音乐流派组成的声谱图，每个小点都是一种音乐风格。','顺着小点一路点下去，会发现自己没听过的世界。'],
+  ['Musicmap','https://musicmap.info/',0,'流行音乐的流派家谱，从爵士到电子，清楚画出每种风格的血缘与演变。','喜欢音乐的人能在这张图上泡一下午。'],
+  ['WhoSampled','https://www.whosampled.com/',0,'输入任何一首歌，看它采样了谁、又被谁采样，像查音乐的族谱。','搜你喜欢的歌，往往能挖到一堆宝藏。'],
+  // 视觉玩具
+  ['Patatap','https://patatap.com/',1,'随便敲键盘，屏幕上会炸开流动的图形，同时响起清脆的声音。','闭眼乱敲，每一下都是一次小型烟花。'],
+  ['Weave Silk','https://weavesilk.com/',1,'拖动鼠标，指尖会拖出对称、流动的光丝，像在编织会发光的纱。','随便画几笔都很美，很难画丑。'],
+  ['Bomomo','https://bomomo.com/',1,'二十多种古怪的画笔，每一种都会自己生长、流动、旋转。','挨个试一遍，像在做视觉实验。'],
+  ['JacksonPollock','https://www.jacksonpollock.org/',1,'在白色画布上点击、移动，泼出一幅波洛克式的行动绘画。','鼠标点到哪，颜料溅到哪。'],
+  ['This Is Sand','https://thisissand.com/',1,'按一下就落下一小堆彩色沙子，一层层堆出一幅沙画。','极其简单，又莫名让人停不下来。'],
+  ['流体粒子模拟','https://paveldogreat.github.io/WebGL-Fluid-Simulation/',1,'手指划过，彩色的流体被搅动、晕开、飞溅，物理效果真实得惊人。','用手机触屏划动，手感最惊艳。'],
+  ['Zoom Quilt','https://zoomquilt.org/',1,'一幅可以无限放大的画，每往里钻一层，又是一幅新的画。','不停放大，像掉进了兔子洞。'],
+  ['Shadertoy','https://www.shadertoy.com/',1,'程序员用代码画出的实时视觉世界，光影、星云、水面全靠数学生成。','按 Shuffle 随机看，每一个都像科幻片。'],
+  ['Chrome Experiments','https://experiments.withgoogle.com/collection/chrome',1,'谷歌收集的网页创意实验合集，网页能做到的事都在这里。','挑浏览量高的点，几乎不会失望。'],
+  ['Orb.Farm','https://orb.farm/',1,'一颗玻璃球里的微型生态：放水草、小鱼、细菌，看它们自己运转。','养一个属于自己的小小世界。'],
+  // 奇趣实验
+  ['Pointer Pointer','https://pointerpointer.com/',2,'鼠标停在哪儿，就出现一张有人用手指着你那个位置的照片。','把鼠标放在角落试试，它真的指得到。'],
+  ['The Useless Web','https://theuselessweb.com/',2,'按下按钮，它会把你随机送到一个毫无用处但极其有趣的网站。','无聊时按一下，是互联网的扭蛋机。'],
+  ['Endless Horse','https://endless.horse/',2,'一匹长得没有尽头的马，你往下滚，它就一直长。','到底能滚多久？自己试试。'],
+  ['Find the Invisible Cow','https://findtheinvisiblecow.com/',2,'看不见的牛藏在屏幕里，靠声音大小判断它在哪，点中就牛叫。','戴上耳机，声音越大离牛越近。'],
+  ['Hacker Typer','https://hackertyper.com/',2,'随便乱敲键盘，屏幕上会自动滚出像电影里黑客一样的代码。','打开全屏，假装自己在拯救世界。'],
+  ['Eel Slap','https://eelslap.com/',2,'移动鼠标，一条鳗鱼就会“啪”地抽在一个人脸上。','没什么道理，就是想笑。'],
+  ['Cat Bounce','https://catbounce.com/',2,'一屏幕的猫，碰一下就弹来弹去，还可以下一场猫雨。','点 MAKE IT RAIN。'],
+  ['Bongo Cat','https://bongo.cat/',2,'按键盘上的字母，小猫就会敲鼓、弹琴、摇沙锤。','用键盘敲一首曲子，它替你演奏。'],
+  ['This Person Does Not Exist','https://thispersondoesnotexist.com/',2,'每次刷新，都出现一张 AI 生成的、世界上并不存在的人脸。','盯着看久了会有点毛骨悚然。'],
+  // 沉浸游戏
+  ['GeoGuessr','https://www.geoguessr.com/',3,'你被扔到地球某处的街景里，没有提示，靠线索猜自己在哪。','看路牌、植被、车牌，像在做侦探。'],
+  ['A Dark Room','https://adarkroom.doublespeakgames.com/',3,'从一间黑屋子、一句“点火”开始，慢慢展开成一个完整的冒险。','一定要耐心玩下去，会越玩越大。'],
+  ['Candy Box 2','https://candybox2.net/',3,'一开始只有一堆糖果和一个计数器，后来变成一场奇幻冒险。','互联网最经典的文字游戏之一。'],
+  ['Universal Paperclips','https://www.decisionproblem.com/paperclips/',3,'你是一家生产回形针的工厂，在“再做一个”的点击里一步步走向失控。','别被简陋的界面骗了，它非常上头。'],
+  ['Kittens Game','https://bloodrizer.github.io/kittensgame/web/',3,'一群小猫在村庄里从小茅屋一路发展到太空文明。','喜欢放置经营类的话，这是神作。'],
+  ['Little Alchemy 2','https://littlealchemy2.com/',3,'从火、水、土、气四种元素开始，把它们拖到一起，合成世间万物。','试着把“生命”和“泥土”拖在一起。'],
+  ['Infinite Craft','https://neal.fun/infinite-craft/',3,'把四种元素任意组合，AI 会生成无限多的新东西，包括离谱的组合。','试着合成出你自己的名字。'],
+  ['Sandspiel','https://sandspiel.club/',3,'会生长、燃烧、流动、繁殖的像素沙盒，元素之间会互相反应。','放一把火，再浇一滩水。'],
+  ['Powder Game','https://dan-ball.jp/en/javagame/dust/',3,'经典的粉末物理玩具：粉末、液体、火焰、生物在同一个沙盘里反应。','元素多到能玩很久。'],
+  // 宇宙与地球
+  ['100,000 Stars','https://stars.chromeexperiments.com/',4,'从太阳系出发一路飞向银河系，沿途掠过十万颗真实的恒星。','往后拉远，感受太阳有多普通。'],
+  ['If the Moon Were Only 1 Pixel','https://joshworth.com/dev/pixelspace/pixelspace_solarsystem.html',4,'如果月球只有一个像素大，太阳系会有多空？一路滚过去就知道。','滚到后面会怀疑人生：太空真的太空了。'],
+  ['Scale of the Universe 2','https://htwins.net/scale2/',4,'拖动滑块，从量子泡沫一路缩放到可观测宇宙，万物的尺度一目了然。','每个物体点一下都有讲解。'],
+  ['Stuff in Space','https://stuffin.space/',4,'实时展示地球轨道上所有卫星、火箭残骸和太空碎片的位置。','密密麻麻的，像一圈太空垃圾带。'],
+  ['Earth Wind Map','https://earth.nullschool.net/',4,'一只转动的地球，风、洋流、温度、污染物在表面实时流动。','台风来的时候打开看，非常震撼。'],
+  ['FlightRadar24','https://www.flightradar24.com/',4,'此刻全球天上每一架民航飞机都在图上，点一下能看到航班信息。','抬头看到飞机，就上来查它飞往哪。'],
+  ['Marine Traffic','https://www.marinetraffic.com/',4,'实时全球船舶地图，货轮、油轮、邮轮在海上的位置一目了然。','看马六甲海峡挤满了船。'],
+  ['The True Size','https://www.thetruesize.com/',4,'把国家拖到赤道附近，看看墨卡托投影把它们放大了多少。','把格陵兰拖到非洲旁边，差距惊人。'],
+  ['Ventusky','https://www.ventusky.com/',4,'极其漂亮的全球天气可视化，风、雨、云、雪都在地图上动。','看云系移动像看一部延时大片。'],
+  // 知识可视
+  ['Nicky Case','https://ncase.me/',5,'用互动小游戏讲复杂道理：信任如何建立、群体如何走向隔离。','每一篇都能边玩边恍然大悟。'],
+  ['Seeing Theory','https://seeing-theory.brown.edu/',5,'布朗大学做的概率统计可视化，难懂的概念在这里一眼看懂。','学概率的人一定要打开。'],
+  ['Wait But Why','https://waitbutwhy.com/',5,'用火柴人画的深度长文，把人工智能、宇宙、时间讲得又深又好笑。','从那篇“为什么你总拖延”开始看。'],
+  ['Our World in Data','https://ourworldindata.org/',5,'用数据和图表讲清楚世界正在变好还是变坏，严谨又免费。','想了解世界真相，先查这里。'],
+  ['Gapminder','https://www.gapminder.org/tools/',5,'把两百年的国家发展数据做成会动的气泡图，看贫穷如何被甩在身后。','按播放，看中国这几十年的移动。'],
+  ['Dollar Street','https://www.gapminder.org/dollar-street/',5,'按收入从低到高排列的“街道”，走进不同收入家庭的真实生活。','穷与富的差别，在牙刷和厕所上最直观。'],
+  ['The Pudding','https://pudding.cool/',5,'用视觉数据讲文化故事的网站：歌词、电影、名字背后的规律。','每篇报道都像一件艺术品。'],
+  ['Histography','https://histography.io/',5,'一条从大爆炸到今天的时间轴，每个小点都是一个历史事件。','随便拉一个年代，看那年发生了什么。'],
+  ['Atlas Obscura','https://www.atlasobscura.com/',5,'全球奇闻异景大全：隐秘的建筑、奇怪的博物馆、离奇的地方。','旅行前先来查有没有冷门奇景。'],
+  // 治愈氛围
+  ['Window Swap','https://www.window-swap.com/',6,'世界各地的人录下自己窗外的风景，你随机打开一扇别人的窗。','看别人窗外的雨、雪、猫和行人。'],
+  ['The Nicest Place','https://thenicestplaceontheinter.net/',6,'互联网上最温柔的地方：陌生人拥抱的视频配着轻音乐循环播放。','难过的时候打开，会被抱住。'],
+  ['Do Nothing for 2 Minutes','https://www.donothingfor2minutes.com/',6,'什么都别做，听两分钟海浪，动一下鼠标就重新计时。','试试你能不能坚持两分钟。'],
+  ['Pixel Thoughts','https://www.pixelthoughts.co/',6,'把烦恼写进一颗星星，看着它越来越小、越来越远，持续六十秒。','焦虑的时候，把心事交出去。'],
+  ['Rainy Mood','https://www.rainymood.com/',6,'打开就是一场高质量的雷雨声，配着读书、睡觉、工作都好。','和喜欢的音乐一起开，效果加倍。'],
+  ['myNoise','https://mynoise.net/',6,'极其专业的噪音与声景发生器，可调节每个频段，种类多到惊人。','专注、入睡、遮噪都能找到合适的。'],
+  ['A Soft Murmur','https://asoftmurmur.com/',6,'自己混合雨声、风声、火堆、咖啡馆、海浪，调出专属背景声。','把雨声和咖啡馆各开一半。'],
+  ['Coffitivity','https://coffitivity.com/',6,'循环播放咖啡馆里若有若无的人声，据说能提升创造力。','在家办公时假装在咖啡馆。'],
+  ['Moodist','https://moodist.net/',6,'干净清爽的环境音播放器，雨声、森林、白噪音分类齐全。','界面安静，没有广告打扰。'],
+  // 创造工具
+  ['Chrome Music Lab','https://musiclab.chromeexperiments.com/',7,'谷歌做的音乐实验室，把旋律、节奏、声波变成可以玩的玩具。','从 Song Maker 开始，画一首歌。'],
+  ['Incredibox','https://www.incredibox.com/',7,'给一排小人戴上不同的声音帽子，他们就开始唱、打碟、和声。','拖一拖，几分钟就能排出一首作品。'],
+  ['Blob Opera','https://artsandculture.google.com/experiment/blob-opera/UDGGggIgxAI',7,'四只圆滚滚的果冻，拖着它们唱出歌剧般的和声。','上下拖动控制音高，意外地好听。'],
+  ['BeepBox','https://beepbox.co/',7,'在浏览器里做芯片音乐的小工具，画格子就能编曲。','喜欢 8-bit 游戏音乐的人会爱。'],
+  ['Online Sequencer','https://onlinesequencer.net/',7,'在线音序器，把音符画在轨道上，就能做出一首完整的曲子。','可以听别人做的，也可以自己写。'],
+  ['Excalidraw','https://excalidraw.com/',7,'画出来像手绘的白板工具，画流程图、示意图又快又有温度。','随便画的框都自带手绘感。'],
+  ['tldraw','https://www.tldraw.com/',7,'体验极其顺滑的在线画板，像真的在纸上画，还能协作。','打开随便画两笔，手感极好。'],
+  ['Photopea','https://www.photopea.com/',7,'浏览器里的 Photoshop，PSD、抠图、调色都能做，免费。','临时要修图，不用装软件。'],
+  ['Piskel','https://www.piskelapp.com/',7,'专为像素画和逐帧动画设计的在线工具，简单好用。','画一个自己的像素小动画。'],
+  ['Quick, Draw!','https://quickdraw.withgoogle.com/',7,'你画，AI 猜，看它能不能在 20 秒内认出你画的东西。','画完它还会告诉你它怎么认的。'],
+  ['AutoDraw','https://www.autodraw.com/',7,'你画得再丑，它都能猜出你想画什么并替换成漂亮图标。','手残党画图标神器。'],
+  ['Wayback Machine','https://web.archive.org/',7,'互联网档案馆，输入网址就能看到任何网站十几年前的样子。','回去看看你小时候的网站首页。'],
+  ["Cameron's World",'https://www.cameronsworld.net/',7,'用旧 GeoCities 网页的碎片拼出的网站，是千禧年互联网的模样。','满屏的 GIF 和计数器，怀旧拉满。'],
+  ['My 90s TV','https://my90stv.com/',7,'模拟一台九十年代的电视机，用旋钮换台，全是当年的节目片段。','像小时候一样胡乱换台。'],
+  ['Listen to Wikipedia','https://listen.hatnote.com/',7,'把维基百科此刻全球的每一次编辑，变成叮咚的音符和飞舞的光点。','开着它，听知识在实时生长。'],
+  ['Neal.fun','https://neal.fun/',7,'一个充满奇妙互动小页面的宝库：深海、宇宙、花钱、太空发射。','每个都点一遍，个个是惊喜。'],
+].map((d,i)=>({id:i,name:d[0],url:d[1],cat:d[2],desc:d[3],tip:d[4]}));
+
+/* ============ 牌背纹样 ============ */
+const BACK_SEAL = `
+<svg class="seal" viewBox="0 0 100 100" fill="none" stroke="#EBC57F" stroke-width="1.2">
+  <circle cx="50" cy="50" r="40" opacity=".55"/>
+  <circle cx="50" cy="50" r="30" opacity=".8"/>
+  <path d="M50 14 L57 43 L86 50 L57 57 L50 86 L43 57 L14 50 L43 43 Z" opacity=".9"/>
+  <circle cx="50" cy="50" r="7" fill="#EBC57F" stroke="none"/>
+</svg>`;
+document.querySelectorAll('.card-back, .face.back').forEach(el=>{
+  el.innerHTML = el.innerHTML.replace('CARD_BACK_SEAL','') + BACK_SEAL;
+});
+
+/* ============ 牌面艺术图案（按类别） ============ */
+const ART_SVG = [
+  // 世界之声：声波
+  `<g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+    <path d="M30 50 q10 -18 20 0 t20 0"/><path d="M22 50 q10 -28 20 0" opacity=".6"/><path d="M58 50 q10 28 20 0" opacity=".6"/>
+    <circle cx="50" cy="50" r="4.5" fill="currentColor" stroke="none"/></g>`,
+  // 视觉玩具：四芒星
+  `<path d="M50 18 L56 44 L82 50 L56 56 L50 82 L44 56 L18 50 L44 44 Z" fill="currentColor"/>
+   <circle cx="50" cy="50" r="6" fill="#161232"/>`,
+  // 奇趣实验：螺旋
+  `<path d="M50 50 m0 0 a6 6 0 1 1 12 0 a12 12 0 1 1 -24 0 a18 18 0 1 1 36 0 a24 24 0 1 1 -48 0"
+    fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+   <circle cx="50" cy="50" r="4" fill="currentColor"/>`,
+  // 沉浸游戏：菱形
+  `<rect x="32" y="32" width="36" height="36" rx="6" transform="rotate(45 50 50)" fill="none" stroke="currentColor" stroke-width="2.6"/>
+   <circle cx="50" cy="50" r="5" fill="currentColor"/>
+   <circle cx="50" cy="27" r="3.4" fill="currentColor"/><circle cx="50" cy="73" r="3.4" fill="currentColor"/>
+   <circle cx="27" cy="50" r="3.4" fill="currentColor"/><circle cx="73" cy="50" r="3.4" fill="currentColor"/>`,
+  // 宇宙地球：行星环
+  `<circle cx="50" cy="50" r="20" fill="currentColor" opacity=".9"/>
+   <ellipse cx="50" cy="50" rx="38" ry="11" fill="none" stroke="currentColor" stroke-width="2.4" transform="rotate(-18 50 50)"/>`,
+  // 知识可视：全视之眼
+  `<path d="M20 50 Q50 24 80 50 Q50 76 20 50 Z" fill="none" stroke="currentColor" stroke-width="2.6"/>
+   <circle cx="50" cy="50" r="10" fill="currentColor"/><circle cx="50" cy="50" r="4.5" fill="#161232"/>`,
+  // 治愈氛围：月亮
+  `<path d="M62 26 A28 28 0 1 0 62 74 A22 22 0 1 1 62 26 Z" fill="currentColor"/>
+   <circle cx="30" cy="34" r="2.4" fill="currentColor" opacity=".7"/><circle cx="26" cy="58" r="2" fill="currentColor" opacity=".6"/>`,
+  // 创造工具：晶体
+  `<path d="M50 20 L70 40 L50 80 L30 40 Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/>
+   <path d="M30 40 H70 M50 20 L50 80 M50 20 L30 40 M50 20 L70 40" stroke="currentColor" stroke-width="1.6" opacity=".8"/>`,
+];
+const FAV_ICON = filled => `
+<svg viewBox="0 0 24 24" fill="${filled?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+  <path d="M12 21s-7.5-4.9-10-9.3C.5 8.4 2.4 5 5.8 5c2 0 3.4 1.1 4.2 2.4C10.8 6.1 12.2 5 14.2 5c3.4 0 5.3 3.4 3.8 6.7C19.5 16.1 12 21 12 21z"/>
+</svg>`;
+
+/* ============ 状态 ============ */
+const STORE_KEY = 'wonderCards_v1';
+let state = { fav:[], drawn:[], dailyDate:'', dailyId:null };
+try{ Object.assign(state, JSON.parse(localStorage.getItem(STORE_KEY))||{}); }catch(e){}
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function todayKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function seededPick(seed){
+  let h=0; for(let i=0;i<seed.length;i++){ h=(h*31 + seed.charCodeAt(i))>>>0; }
+  return h % SITES.length;
+}
+let busy=false, currentId=null;
+
+/* ============ 渲染牌面 ============ */
+function cardFrontHTML(s){
+  const cat = CATS[s.cat];
+  return `
+  <div class="inner-frame"></div>
+  <div class="card-art" style="color:${cat.color}">
+    <div class="art-bg" style="background:radial-gradient(circle at 50% 42%, ${cat.color}33, transparent 70%)"></div>
+    <svg viewBox="0 0 100 100">${ART_SVG[s.cat]}</svg>
+  </div>
+  <div class="card-body">
+    <span class="card-cat" style="color:${cat.color}">${cat.name}</span>
+    <div class="card-name">${s.name}</div>
+    <div class="card-domain">${s.url.replace(/^https?:\/\//,'').replace(/\/$/,'')}</div>
+    <div class="card-desc">${s.desc}</div>
+    <div class="card-tip">✦ <b>${s.tip}</b></div>
+    <div class="card-actions">
+      <a class="btn btn-go" href="${s.url}" target="_blank" rel="noopener">前往这个网站</a>
+      <button class="btn-fav ${state.fav.includes(s.id)?'saved':''}" data-fav="${s.id}" title="收藏">${FAV_ICON(state.fav.includes(s.id))}</button>
+    </div>
+  </div>`;
+}
+
+/* ============ 抽卡流程 ============ */
+const stage = document.getElementById('deckStage');
+const drawnCard = document.getElementById('drawnCard');
+const cardFront = document.getElementById('cardFront');
+const drawBtn = document.getElementById('drawBtn');
+
+function pickNext(){
+  const tk = todayKey();
+  if(state.dailyDate !== tk){
+    state.dailyDate = tk;
+    state.dailyId = seededPick(tk);
+    if(!state.drawn.includes(state.dailyId)) state.drawn.push(state.dailyId);
+    save();
+    return {id:state.dailyId, daily:true};
+  }
+  let pool = SITES.map((_,i)=>i).filter(i=>!state.drawn.includes(i));
+  if(pool.length===0){ state.drawn = []; pool = SITES.map((_,i)=>i); }
+  const id = pool[Math.floor(Math.random()*pool.length)];
+  state.drawn.push(id);
+  save();
+  return {id, daily:false};
+}
+
+function draw(){
+  if(busy) return;
+  busy = true;
+  drawBtn.style.visibility = 'hidden';
+  drawnCard.className = 'drawn-card';
+  drawnCard.style.opacity = '0';
+  stage.classList.add('shuffling');
+  setTimeout(()=>stage.classList.remove('shuffling'), 400);
+  const picked = pickNext();
+  currentId = picked.id;
+  setTimeout(()=>{
+    cardFront.innerHTML = cardFrontHTML(SITES[picked.id]);
+    drawnCard.style.opacity = '';
+    drawnCard.classList.add('rising');
+    burstAt(stage);
+  }, 280);
+  setTimeout(()=>{ drawnCard.classList.add('flipping'); }, 680);
+  setTimeout(()=>{
+    busy=false;
+    drawBtn.textContent = '再 抽 一 张';
+    drawBtn.style.visibility = '';
+    refreshStats();
+    updateDailyHint();
+  }, 1300);
+}
+drawBtn.addEventListener('click', draw);
+
+/* ============ 收藏操作 ============ */
+function toggleFav(id){
+  const i = state.fav.indexOf(id);
+  if(i>=0){ state.fav.splice(i,1); toast('已取消收藏'); }
+  else{ state.fav.push(id); toast('已加入收藏夹'); }
+  save();
+  if(currentId===id){
+    const b = drawnCard.querySelector('[data-fav]');
+    if(b){ b.classList.toggle('saved', state.fav.includes(id)); b.innerHTML = FAV_ICON(state.fav.includes(id)); }
+  }
+  refreshStats();
+  renderFav();
+}
+document.addEventListener('click', e=>{
+  const f = e.target.closest('[data-fav]');
+  if(f){ toggleFav(+f.dataset.fav); }
+});
+
+/* ============ 统计与提示 ============ */
+function refreshStats(){
+  document.getElementById('totalCount').textContent = SITES.length;
+  document.getElementById('drawnCount').textContent = state.drawn.length;
+  document.getElementById('favCount').textContent = state.fav.length;
+  document.getElementById('favCount2').textContent = state.fav.length;
+}
+function updateDailyHint(){
+  const el = document.getElementById('dailyHintText');
+  if(state.dailyDate===todayKey()){
+    el.textContent = '今日命运之牌：' + SITES[state.dailyId].name;
+  }else{ el.textContent = '今天的命运之牌还没抽'; }
+}
+
+/* ============ 收藏夹视图 ============ */
+const favGrid = document.getElementById('favGrid');
+function renderFav(){
+  if(state.fav.length===0){
+    favGrid.innerHTML = `
+      <div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 21s-7.5-4.9-10-9.3C.5 8.4 2.4 5 5.8 5c2 0 3.4 1.1 4.2 2.4C10.8 6.1 12.2 5 14.2 5c3.4 0 5.3 3.4 3.8 6.7C19.5 16.1 12 21 12 21z"/></svg>
+        <p>还没有收藏任何网站<br>抽到喜欢的那张，点一下牌上的爱心就好</p>
+        <a class="go-draw" href="#" id="emptyGoDraw">去抽一张</a>
+      </div>`;
+    document.getElementById('emptyGoDraw').addEventListener('click',e=>{e.preventDefault();switchView('draw');});
+    return;
+  }
+  favGrid.innerHTML = state.fav.map(id=>{
+    const s = SITES[id], cat = CATS[s.cat];
+    return `
+    <div class="fav-card">
+      <div class="card-art" style="color:${cat.color}">
+        <div class="art-bg" style="background:radial-gradient(circle at 50% 42%, ${cat.color}33, transparent 70%)"></div>
+        <svg viewBox="0 0 100 100">${ART_SVG[s.cat]}</svg>
+      </div>
+      <div class="card-body">
+        <span class="card-cat" style="color:${cat.color};font-size:10px">${cat.name}</span>
+        <div class="card-name">${s.name}</div>
+        <div class="card-desc">${s.desc}</div>
+        <div class="fcard-actions">
+          <a class="btn btn-go" href="${s.url}" target="_blank" rel="noopener">前往</a>
+          <button class="btn-fav" data-fav="${s.id}">${FAV_ICON(true)}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ============ 视图切换 ============ */
+function switchView(v){
+  document.getElementById('viewDraw').classList.toggle('show', v==='draw');
+  document.getElementById('viewFav').classList.toggle('show', v==='fav');
+  document.getElementById('navDraw').classList.toggle('active', v==='draw');
+  document.getElementById('navFav').classList.toggle('active', v==='fav');
+  if(v==='fav') renderFav();
+}
+document.getElementById('navDraw').addEventListener('click',()=>switchView('draw'));
+document.getElementById('navFav').addEventListener('click',()=>switchView('fav'));
+
+/* ============ toast ============ */
+let toastTimer;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+/* ============ 星空背景 ============ */
+(function(){
+  const cv = document.getElementById('starfield'), ctx = cv.getContext('2d');
+  let stars = [];
+  function resize(){
+    cv.width = innerWidth; cv.height = innerHeight;
+    stars = [];
+    const n = Math.floor(innerWidth*innerHeight/9000);
+    for(let i=0;i<n;i++){
+      stars.push({x:Math.random()*cv.width, y:Math.random()*cv.height,
+        r:Math.random()*1.3+.2, p:Math.random()*Math.PI*2, s:Math.random()*.015+.004});
+    }
+  }
+  resize(); addEventListener('resize', resize);
+  (function loop(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(const st of stars){
+      st.p += st.s;
+      const a = .25 + Math.abs(Math.sin(st.p))*.7;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = st.r>1.1 ? '#EBC57F' : '#CFC6F0';
+      ctx.beginPath(); ctx.arc(st.x,st.y,st.r,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(loop);
+  })();
+})();
+
+/* ============ 抽卡粒子 ============ */
+const pCV = document.getElementById('particles'), pCtx = pCV.getContext('2d');
+let parts = [];
+function burstAt(el){
+  const r = el.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2;
+  for(let i=0;i<46;i++){
+    const a = Math.random()*Math.PI*2, sp = Math.random()*5+1.5;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1.5,
+      life:1, size:Math.random()*2.6+1, gold:Math.random()>.3});
+  }
+}
+(function loop(){
+  pCV.width = innerWidth; pCV.height = innerHeight;
+  parts = parts.filter(p=>p.life>0);
+  for(const p of parts){
+    p.x += p.vx; p.y += p.vy; p.vy += .08; p.life -= .018;
+    pCtx.globalAlpha = Math.max(p.life,0);
+    pCtx.fillStyle = p.gold ? '#EBC57F' : '#B9B0E8';
+    pCtx.beginPath(); pCtx.arc(p.x,p.y,p.size,0,Math.PI*2); pCtx.fill();
+  }
+  pCtx.globalAlpha = 1;
+  requestAnimationFrame(loop);
+})();
+
+/* ============ 初始化 ============ */
+refreshStats();
+updateDailyHint();
+</script>
+</body>
+</html>
